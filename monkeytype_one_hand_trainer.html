@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>typeOne - One-Handed & Audio Typing Speed Trainer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: JetBrains Mono & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#111315',
+            subBg: '#1b1f22',
+            textMuted: '#687078',
+            textMain: '#cbd1d5',
+            error: '#d05a68',
+            errorExtra: '#843b49',
+            accent: '#00ff09',
+            accentHover: '#33ff3b',
+            keyboardKey: '#1b1f22',
+            keyboardBorder: '#30363b'
+          },
+          fontFamily: {
+            mono: ['"JetBrains Mono"', 'monospace'],
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111315;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #30363b;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #41494f;
+    }
+
+    body {
+      background-color: #111315;
+      color: #cbd1d5;
+      font-family: 'JetBrains Mono', monospace;
+      user-select: none;
+      overflow-x: hidden;
+    }
+
+    /* Caret smooth sliding animation */
+    #caret {
+      position: absolute;
+      width: 2.5px;
+      height: 1.6rem;
+      background-color: #00ff09;
+      border-radius: 1px;
+      transition: transform 0.08s cubic-bezier(0, 0, 0.2, 1), opacity 0.15s ease;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    #caret.blinking {
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Letter styling states */
+    .letter {
+      position: relative;
+      color: #687078;
+      transition: color 0.05s ease;
+    }
+    .letter.correct {
+      color: #cbd1d5;
+    }
+    .letter.incorrect {
+      color: #d05a68;
+    }
+    .letter.extra {
+      color: #843b49;
+      opacity: 0.9;
+    }
+    .word.current-word {
+      border-bottom: 2px solid rgba(0, 255, 9, 0.3);
+    }
+    .word.error-word {
+      border-bottom: 2px dashed rgba(208, 90, 104, 0.5);
+    }
+
+    /* Visual Key animations */
+    .keycap {
+      transition: all 0.08s ease;
+      box-shadow: 0 3px 0 #080a0b;
+    }
+    .keycap.pressed {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #080a0b;
+      background-color: #00ff09 !important;
+      color: #111315 !important;
+      border-color: #00ff09 !important;
+    }
+    .keycap.dimmed {
+      opacity: 0.18;
+      filter: grayscale(80%);
+      pointer-events: none;
+    }
+    .keycap.active-hand {
+      border-color: rgba(0, 255, 9, 0.45);
+      background-color: #252a2e;
+    }
+
+    .key-badge {
+      background: #1b1f22;
+      border: 1px solid #30363b;
+      box-shadow: 0 2px 0 #080a0b;
+    }
+
+    /* Waveform Animation for Audio Mode */
+    .wave-bar {
+      width: 4px;
+      height: 16px;
+      background-color: #00ff09;
+      border-radius: 2px;
+      animation: wave 1s infinite ease-in-out;
+    }
+    .wave-bar:nth-child(1) { animation-delay: 0.0s; }
+    .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+    .wave-bar:nth-child(3) { animation-delay: 0.3s; }
+    .wave-bar:nth-child(4) { animation-delay: 0.45s; }
+    .wave-bar:nth-child(5) { animation-delay: 0.6s; }
+
+    @keyframes wave {
+      0%, 100% { height: 8px; opacity: 0.4; }
+      50% { height: 28px; opacity: 1; }
+    }
+
+    /* Pulse effect for streak */
+    .streak-pop {
+      animation: pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col justify-between p-4 md:p-8 max-w-6xl mx-auto">
+
+  <!-- TOP HEADER -->
+  <header class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+    <!-- Logo -->
+    <div class="flex items-center gap-3 cursor-pointer group" id="logo-btn">
+      <div class="w-10 h-10 rounded-xl bg-accent text-bg flex items-center justify-center font-bold text-xl shadow-lg transition-transform group-hover:scale-105">
+        <i class="fa-solid fa-keyboard"></i>
+      </div>
+      <div>
+        <h1 class="text-2xl font-bold tracking-wider text-textMain group-hover:text-accent transition-colors flex items-center gap-2">
+          ZAKY-TYPES <span class="text-xs bg-subBg border border-gray-700 text-accent px-2 py-0.5 rounded-md font-mono font-normal">v2.0</span>
+        </h1>
+        <p class="text-xs text-textMuted font-sans">Single-Hand & Audio Speedrun Trainer</p>
+      </div>
+    </div>
+
+    <!-- Quick Stats Header -->
+    <div id="live-stats-header" class="opacity-0 transition-opacity duration-300 flex items-center gap-6 text-xl font-mono">
+      <!-- Standard WPM Stats -->
+      <div id="stat-wpm-box" class="flex items-baseline gap-1">
+        <span class="text-xs text-textMuted uppercase tracking-wider">WPM</span>
+        <span id="live-wpm" class="text-accent font-bold">0</span>
+      </div>
+      <div id="stat-acc-box" class="flex items-baseline gap-1">
+        <span class="text-xs text-textMuted uppercase tracking-wider">ACC</span>
+        <span id="live-acc" class="text-textMain font-bold">100%</span>
+      </div>
+      <!-- Timer or Audio Streak Stat -->
+      <div id="stat-timer-box" class="flex items-baseline gap-1">
+        <span id="live-timer-label" class="text-xs text-textMuted uppercase tracking-wider">TIME</span>
+        <span id="live-timer" class="text-accent font-bold">30s</span>
+      </div>
+      <!-- Audio Streak Counter Badge (Shown only in Audio mode) -->
+      <div id="stat-streak-box" class="hidden flex items-center gap-2 bg-subBg border border-accent/30 px-3 py-1 rounded-xl">
+        <i class="fa-solid fa-fire text-accent text-sm animate-pulse"></i>
+        <span class="text-xs text-textMuted uppercase">Streak</span>
+        <span id="live-streak" class="text-accent font-bold text-xl">0x</span>
+      </div>
+    </div>
+
+    <!-- Quick Action Icons -->
+    <div class="flex items-center gap-3 text-textMuted text-lg">
+      <button id="toggle-sound-btn" title="Toggle Mechanical Sound Effects" class="hover:text-accent transition-colors p-2 rounded-lg hover:bg-subBg">
+        <i id="sound-icon" class="fa-solid fa-volume-high text-accent"></i>
+      </button>
+      <button id="toggle-keyboard-btn" title="Toggle Visual Keyboard" class="hover:text-accent transition-colors p-2 rounded-lg hover:bg-subBg">
+        <i id="keyboard-icon" class="fa-solid fa-keyboard text-accent"></i>
+      </button>
+      <button id="quick-restart-btn" title="Restart Test (Esc)" class="hover:text-accent transition-colors p-2 rounded-lg hover:bg-subBg">
+        <i class="fa-solid fa-rotate-right"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONFIGURATION TOOLBAR -->
+  <nav id="config-bar" class="bg-subBg rounded-2xl p-2 md:p-3 mb-6 shadow-md transition-all duration-300 flex flex-wrap items-center justify-center gap-3 text-xs md:text-sm font-medium">
+    
+    <!-- Hand Selector -->
+    <div class="flex items-center bg-bg rounded-xl p-1 gap-1 border border-gray-800">
+      <button data-hand="both" class="hand-btn px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 bg-accent text-bg font-semibold shadow">
+        <span></span> Both Hands
+      </button>
+      <button data-hand="left" class="hand-btn px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-textMuted hover:text-textMain">
+        <span></span> Left Hand only
+      </button>
+      <button data-hand="right" class="hand-btn px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-textMuted hover:text-textMain">
+        <span></span> Right Hand only
+      </button>
+      <button data-hand="home" class="hand-btn px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-textMuted hover:text-textMain">
+        <span></span>One Keyboard Row only
+      </button>
+    </div>
+
+    <div class="h-5 w-px bg-gray-700 hidden sm:block"></div>
+
+    <!-- Layout Selector -->
+    <div class="flex items-center bg-bg rounded-xl p-1 gap-1 border border-gray-800">
+      <button data-layout="qwerty" class="layout-btn px-3 py-1.5 rounded-lg transition-all bg-accent text-bg font-semibold shadow">
+         AZERTY
+      </button>
+      <button data-layout="azerty" class="layout-btn px-3 py-1.5 rounded-lg transition-all text-textMuted hover:text-textMain">
+        QWERTY
+      </button>
+    </div>
+
+    <div class="h-5 w-px bg-gray-700 hidden sm:block"></div>
+
+    <!-- Main Mode Selector (Time, Words, Audio Listening) -->
+    <div class="flex items-center bg-bg rounded-xl p-1 gap-1 border border-gray-800">
+      <button data-mode="time" class="mode-btn px-3 py-1.5 rounded-lg transition-all bg-accent text-bg font-semibold shadow flex items-center gap-1">
+        <i class="fa-regular fa-clock text-xs"></i> Time
+      </button>
+      <button data-mode="words" class="mode-btn px-3 py-1.5 rounded-lg transition-all text-textMuted hover:text-textMain flex items-center gap-1">
+         No Time Limit
+      </button>
+      <button data-mode="audio" class="mode-btn px-3 py-1.5 rounded-lg transition-all text-textMuted hover:text-textMain flex items-center gap-1.5 border border-accent/20">
+        <i class="fa-solid fa-headphones text-accent text-xs"></i> Audio Typist
+      </button>
+    </div>
+
+    <!-- Sub-mode Options -->
+    <div id="submode-options" class="flex items-center bg-bg rounded-xl p-1 gap-1 border border-gray-800">
+      <button data-value="15" class="submode-btn px-2.5 py-1.5 rounded-lg text-textMuted hover:text-textMain">15s</button>
+      <button data-value="30" class="submode-btn px-2.5 py-1.5 rounded-lg bg-accent text-bg font-semibold shadow">30s</button>
+      <button data-value="60" class="submode-btn px-2.5 py-1.5 rounded-lg text-textMuted hover:text-textMain">60s</button>
+    </div>
+  </nav>
+
+  <!-- MAIN TYPING TEST CONTAINER -->
+  <main class="flex-grow flex flex-col justify-center relative my-2">
+    
+    <!-- Hidden text input -->
+    <input type="text" id="typing-input" class="absolute opacity-0 pointer-events-none left-0 top-0" autocomplete="off" capitalize="off" spellcheck="false">
+
+    <!-- TEST VIEW -->
+    <div id="test-view" class="relative w-full max-w-5xl mx-auto flex flex-col items-center">
+      
+      <!-- Audio Progress Bar (Active in Audio Mode) -->
+      <div id="audio-progress-wrapper" class="w-full bg-subBg h-2 rounded-full mb-4 overflow-hidden border border-gray-800 hidden">
+        <div id="audio-progress-bar" class="h-full bg-accent transition-all duration-75 w-full"></div>
+      </div>
+
+      <!-- AUDIO TYPIST SPECIFIC HUD (Shown only in Audio mode) -->
+      <div id="audio-hud" class="hidden w-full flex flex-col items-center gap-4 mb-4 bg-subBg/60 p-4 rounded-2xl border border-gray-800/80 backdrop-blur">
+        <div class="flex items-center gap-4">
+          <!-- Play Audio Button -->
+          <button id="replay-audio-btn" class="flex items-center gap-2 px-4 py-2 bg-accent text-bg font-bold rounded-xl shadow-lg hover:bg-accentHover transition-all active:scale-95">
+            <i class="fa-solid fa-volume-high text-lg"></i>
+            <span>Replay Audio</span>
+            <span class="text-[10px] bg-bg/20 px-1.5 py-0.5 rounded font-mono">Enter</span>
+          </button>
+          
+          <!-- Audio Waveform Visualizer -->
+          <div id="audio-waveform" class="flex items-center gap-1 px-3 py-2 bg-bg rounded-xl border border-gray-800">
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-6 text-xs text-textMuted">
+          <span><i class="fa-solid fa-gauge-high text-accent"></i> Speed: <strong id="audio-speed-label" class="text-textMain">1.0x</strong></span>
+          <span><i class="fa-solid fa-stopwatch text-accent"></i> Word Time Limit: <strong id="audio-timer-limit-label" class="text-textMain">6.0s</strong></span>
+          <span class="text-accent font-semibold"><i class="fa-solid fa-bolt"></i> Speed increases with higher streak!</span>
+        </div>
+      </div>
+
+      <!-- Main Display Box (Standard Words or Masked Audio Word Display) -->
+      <div id="words-wrapper" class="relative w-full overflow-x-hidden overflow-y-hidden min-h-[140px] max-h-[160px] cursor-pointer rounded-2xl p-4 transition-all" onclick="focusInput()">
+        <!-- Sliding Caret -->
+        <div id="caret" class="blinking"></div>
+        
+        <!-- Rendered Text Container -->
+        <div id="words-container" class="flex flex-wrap gap-x-3 gap-y-3 text-2xl md:text-3xl font-mono leading-relaxed tracking-wide select-none">
+          <!-- Dynamically populated letters -->
+        </div>
+      </div>
+
+      <!-- Focus Blur Overlay -->
+      <div id="focus-error-notice" class="hidden absolute inset-0 bg-bg/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-2xl text-accent gap-2 cursor-pointer" onclick="focusInput()">
+        <i class="fa-solid fa-arrow-pointer text-3xl animate-bounce"></i>
+        <p class="text-lg font-medium text-textMain">Click or press any key to focus</p>
+      </div>
+
+      <!-- Hotkey Hint Badge -->
+      <div class="mt-6 flex items-center justify-center gap-3 text-xs text-textMuted">
+        <button id="restart-hint-btn" class="flex items-center gap-2 hover:text-textMain transition-colors py-1.5 px-3 rounded-lg hover:bg-subBg">
+          <span class="key-badge px-2 py-0.5 rounded text-accent font-semibold text-[11px]">Tab</span>
+          <span>+</span>
+          <span class="key-badge px-2 py-0.5 rounded text-accent font-semibold text-[11px]">Enter</span>
+          <span class="ml-1">- restart test</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- RESULTS VIEW -->
+    <div id="results-view" class="hidden w-full max-w-5xl mx-auto flex flex-col gap-6 animate-fadeIn">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+        
+        <!-- Big Stats Column -->
+        <div class="md:col-span-1 flex flex-col gap-5 bg-subBg p-6 rounded-2xl border border-gray-800 shadow-xl">
+          <div>
+            <span class="text-xs uppercase tracking-widest text-textMuted font-sans">WPM</span>
+            <div id="result-wpm" class="text-6xl font-bold text-accent leading-none mt-1">0</div>
+          </div>
+
+          <div>
+            <span class="text-xs uppercase tracking-widest text-textMuted font-sans">Accuracy</span>
+            <div id="result-acc" class="text-4xl font-bold text-textMain leading-none mt-1">0%</div>
+          </div>
+
+          <div id="audio-streak-result-box" class="hidden">
+            <span class="text-xs uppercase tracking-widest text-textMuted font-sans">Max Audio Streak</span>
+            <div id="result-max-streak" class="text-4xl font-bold text-accent leading-none mt-1">0x</div>
+          </div>
+
+          <div class="pt-4 border-t border-gray-800 flex flex-col gap-2 text-xs text-textMuted">
+            <div class="flex justify-between">
+              <span>Test Mode:</span>
+              <span id="result-mode-desc" class="text-textMain font-semibold">Left / QWERTY</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Raw WPM:</span>
+              <span id="result-raw-wpm" class="text-textMain">0</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Characters:</span>
+              <span id="result-chars" class="text-textMain">0/0/0/0</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Time Spent:</span>
+              <span id="result-time" class="text-textMain">0s</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas Chart Area -->
+        <div class="md:col-span-3 bg-subBg p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col gap-3">
+          <div class="flex justify-between items-center text-xs text-textMuted font-sans">
+            <span class="font-semibold text-textMain flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-accent"></i> Performance Curve
+            </span>
+            <div class="flex items-center gap-4">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-accent inline-block"></span> WPM</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-textMuted inline-block"></span> Raw WPM</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-error inline-block"></span> Errors</span>
+            </div>
+          </div>
+
+          <div class="relative w-full h-60">
+            <canvas id="wpm-chart" class="w-full h-full"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-wrap items-center justify-center gap-4 mt-2">
+        <button id="next-test-btn" class="px-6 py-3 bg-accent text-bg font-bold rounded-xl shadow-lg hover:bg-accentHover transition-all flex items-center gap-2 transform active:scale-95">
+          <i class="fa-solid fa-chevron-right"></i> Next Test
+        </button>
+        <button id="repeat-test-btn" class="px-6 py-3 bg-subBg text-textMain border border-gray-700 font-semibold rounded-xl hover:bg-gray-800 transition-all flex items-center gap-2 transform active:scale-95">
+          <i class="fa-solid fa-rotate-left"></i> Repeat Same Session
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- DYNAMIC VISUAL KEYBOARD -->
+  <section id="keyboard-wrapper" class="w-full max-w-4xl mx-auto my-3 transition-all duration-300">
+    <div id="keyboard-container" class="bg-subBg p-3 md:p-4 rounded-2xl border border-gray-800 shadow-xl flex flex-col gap-1.5 md:gap-2">
+      <!-- Generated dynamically based on layout & hand mode -->
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="mt-auto pt-4 flex flex-col sm:flex-row justify-between items-center text-xs text-textMuted border-t border-gray-800/60 gap-3 font-sans">
+    <div class="flex items-center gap-4">
+      <span class="flex items-center gap-1"><i class="fa-solid fa-keyboard text-accent"></i> One-Hand & Audio Typing Engine</span>
+      <span>•</span>
+      <span>Accessibility & Speed Training</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span class="hover:text-textMain transition-colors"><i class="fa-solid fa-bolt"></i> Real-time WPM</span>
+      <span class="hover:text-textMain transition-colors"><i class="fa-solid fa-headphones"></i> Web Speech TTS</span>
+    </div>
+   
+    <span class="hover:text-textMain transition-colors opacity-30"><i class="fa-solid fa-warning"></i> The audio mode is not fully implemented</span>
+  </footer>
+
+
+  <!-- SCRIPT LOGIC -->
+  <script>
+    /* ==========================================================================
+       1. DICTIONARIES & WORD LISTS
+       ========================================================================== */
+
+    const MASTER_WORDS = [
+      "the", "be", "of", "and", "a", "to", "in", "he", "have", "it", "that", "for", "they", "i", "with", "as", "not", "on", "she", "at", "by", "this", "we", "you", "do", "but", "from", "or", "which", "one", "would", "all", "will", "there", "say", "who", "make", "when", "can", "more", "if", "no", "man", "out", "other", "so", "what", "time", "up", "go", "about", "than", "into", "could", "state", "only", "new", "year", "some", "take", "come", "these", "know", "see", "use", "get", "like", "then", "first", "any", "work", "now", "may", "such", "give", "over", "think", "most", "even", "find", "day", "also", "after", "way", "many", "must", "look", "before", "great", "back", "through", "long", "where", "much", "should", "well", "people", "down", "own", "just", "because", "good", "each", "those", "feel", "seem", "how", "high", "too", "place", "little", "world", "very", "still", "nation", "hand", "old", "life", "tell", "write", "become", "here", "show", "house", "both", "between", "need", "mean", "call", "develop", "under", "last", "right", "move", "thing", "general", "school", "never", "same", "another", "begin", "while", "number", "part", "turn", "real", "leave", "might", "want", "point", "form", "off", "child", "few", "small", "since", "against", "ask", "late", "home", "interest", "large", "person", "end", "open", "public", "follow", "during", "present", "without", "again", "hold", "govern", "around", "possible", "head", "consider", "word", "program", "problem", "however", "lead", "system", "set", "order", "eye", "plan", "run", "keep", "face", "fact", "group", "play", "stand", "increase", "early", "course", "change", "help", "line"
+    ];
+
+    const HAND_DICTIONARIES = {
+      qwerty: {
+        left: [
+          "state", "water", "street", "secret", "great", "bread", "craft", "grade", "waste", "effect", 
+          "create", "stare", "dress", "exact", "agree", "base", "bear", "beer", "beet", "beware", 
+          "brass", "brave", "break", "breeze", "case", "cast", "cave", "cedar", "chest", "crab", 
+          "crate", "craze", "crew", "dare", "dart", "date", "dead", "deaf", "dear", "debt", 
+          "decade", "deck", "degree", "desert", "desk", "draft", "drag", "draw", "dream", "dwarf", 
+          "eager", "east", "edge", "exact", "exert", "extra", "fact", "fade", "fare", "fast", 
+          "fear", "feast", "feed", "feet", "fever", "gate", "gear", "grace", "grass", "grate", 
+          "grave", "grease", "greed", "green", "race", "raft", "rage", "rare", "rate", "read", 
+          "rear", "refer", "rest", "reward", "sacred", "safe", "scare", "seat", "seed", "seek", 
+          "serve", "shade", "share", "sharp", "shave", "shear", "sheet", "space", "staff", "stage", 
+          "star", "start", "state", "stead", "steer", "step", "straw", "stress", "swear", "sweat", 
+          "sweet", "target", "task", "tear", "test", "text", "trade", "tree", "trust", "vast", "wave", "wear", "west"
+        ],
+        right: [
+          "you", "look", "loop", "milk", "mill", "monk", "moon", "opinion", "pink", "plum", 
+          "pool", "pulp", "upon", "hymn", "hook", "link", "lion", "loom", "puff", "hill", 
+          "kill", "lull", "poly", "hull", "holly", "million", "onion", "polo", "kilt", "oily", 
+          "join", "jill", "john", "yukon", "kiln", "jump", "junk", "mink", "nylon", "poly", 
+          "pump", "pupil", "pylon", "umpire", "hoop", "hop", "hull", "hum", "hunk"
+        ],
+        home: [
+          "as", "ask", "all", "fall", "gas", "glass", "hall", "glad", "had", "flag", 
+          "flash", "flask", "dash", "gasp", "salad", "ska", "half", "lass", "lads"
+        ]
+      },
+      azerty: {
+        left: [
+          "asset", "bad", "bar", "base", "bead", "bear", "bed", "beer", "beet", "best", 
+          "bet", "beware", "brass", "brave", "bread", "break", "breeze", "cab", "cafe", "card", 
+          "care", "cart", "case", "cast", "cave", "cedar", "crab", "craft", "crate", "craze", 
+          "dad", "dare", "dart", "date", "dead", "deaf", "dear", "debt", "decade", "deck", 
+          "deer", "degree", "desert", "desk", "draft", "drag", "draw", "dream", "dress", "dwarf", 
+          "eager", "east", "eat", "edge", "egg", "exact", "exert", "extra", "fact", "fade", 
+          "far", "fare", "fast", "fat", "fear", "feast", "fed", "fee", "feed", "feet", 
+          "few", "gas", "gate", "gear", "gem", "grab", "grace", "grade", "grass", "grate", 
+          "grave", "grease", "great", "greed", "green", "race", "raft", "rage", "rare", "rat", 
+          "rate", "raw", "read", "rear", "red", "reed", "refer", "rest", "reward", "sacred", 
+          "sad", "safe", "saw", "scar", "scare", "seat", "secret", "seed", "seek", "serve", 
+          "set", "sew", "sex", "space", "staff", "stage", "star", "stare", "start", "starve", 
+          "state", "stead", "steer", "step", "straw", "street", "stress", "swear", "sweat", "sweater", 
+          "sweet", "tab", "tag", "target", "task", "tea", "tear", "test", "text", "trade", 
+          "tree", "trust", "vast", "waste", "water", "wave", "wax", "wear", "west", "wet"
+        ],
+        right: [
+          "you", "him", "hop", "hum", "ink", "joy", "kill", "look", "milk", "monk", 
+          "moon", "oil", "pink", "poll", "poly", "pool", "pupil", "hook", "hymn", "ill", 
+          "ion", "join", "jug", "junk", "kin", "lip", "lop", "lum", "mop", "mug", 
+          "mum", "nip", "oip", "pin", "pop", "pulp", "pup", "yip", "yum"
+        ],
+        home: [
+          "qis", "sq", "df", "gh", "jk", "lm", "qsdf", "hjklm", "flash", "glass", "hall"
+        ]
+      }
+    };
+
+    const KEYBOARD_LAYOUTS = {
+      qwerty: {
+        rows: [
+          ["a", "z", "e", "r", "t", "y", "u", "i", "o", "p"],
+          ["q", "s", "d", "f", "g", "h", "j", "k", "l", ";"],
+          ["w", "x", "c", "v", "b", "n", "m", ",", "."]
+        ],
+        hands: {
+          left: new Set(["q", "w", "e", "r", "t", "a", "s", "d", "f", "g", "z", "x", "c", "v", "b"]),
+          right: new Set(["y", "u", "i", "o", "p", "h", "j", "k", "l", ";", "n", "m", ",", "."]),
+          home: new Set(["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"])
+        }
+      },
+      azerty: {
+        rows: [
+          ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+          ["a", "s", "d", "f", "g", "h", "j", "k", "l", "m"],
+          ["z", "x", "c", "v", "b", "n", ",", ";", ":"]
+        ],
+        hands: {
+          left: new Set(["a", "z", "e", "r", "t", "q", "s", "d", "f", "g", "w", "x", "c", "v", "b"]),
+          right: new Set(["y", "u", "i", "o", "p", "h", "j", "k", "l", "m", "n", ",", ";", ":"]),
+          home: new Set(["q", "s", "d", "f", "g", "h", "j", "k", "l", "m"])
+        }
+      }
+    };
+
+    /* ==========================================================================
+       2. STATE & CONFIGURATION
+       ========================================================================== */
+
+    const config = {
+      hand: 'both',       // 'both', 'left', 'right', 'home'
+      layout: 'qwerty',   // 'qwerty', 'azerty'
+      mode: 'time',       // 'time', 'words', 'audio'
+      value: 30,          // 15, 30, 60 or 10, 25, 50
+      sound: true,
+      showKeyboard: true
+    };
+
+    const testState = {
+      active: false,
+      finished: false,
+      startTime: null,
+      timerInterval: null,
+      timeLeft: 30,
+      words: [],
+      currentWordIndex: 0,
+      currentCharIndex: 0,
+      keystrokes: {
+        correct: 0,
+        incorrect: 0,
+        extra: 0,
+        missed: 0,
+        total: 0
+      },
+      history: [],
+      // Audio Listening Mode Specific State
+      audio: {
+        streak: 0,
+        maxStreak: 0,
+        wordTimerInterval: null,
+        wordTimeLimit: 6.0,
+        wordTimeRemaining: 6.0,
+        currentSpokenWord: "",
+        speechRate: 1.0,
+        speechRequestId: 0
+      }
+    };
+
+    /* ==========================================================================
+       3. WEB AUDIO SYNTHESIZER (MECHANICAL SOUNDS)
+       ========================================================================== */
+
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playKeySound(type = 'click') {
+      if (!config.sound) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+
+        if (type === 'click') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(1100, now);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.03);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+          osc.start(now);
+          osc.stop(now + 0.03);
+        } else if (type === 'space') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(380, now);
+          osc.frequency.exponentialRampToValueAtTime(70, now + 0.05);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+          osc.start(now);
+          osc.stop(now + 0.05);
+        } else if (type === 'error') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, now);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        }
+      } catch (e) {
+        console.error("Audio synth error", e);
+      }
+    }
+
+    /* ==========================================================================
+       4. TEXT-TO-SPEECH (TTS) AUDIO ENGINE FOR AUDIO MODE
+       ========================================================================== */
+
+    function speakCurrentWord(startTimerOnSpeech = false) {
+      if (config.mode !== 'audio' || !testState.audio.currentSpokenWord) return;
+
+      const speechRequestId = ++testState.audio.speechRequestId;
+      
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Stop ongoing speech
+
+        const utterance = new SpeechSynthesisUtterance(testState.audio.currentSpokenWord);
+        utterance.lang = 'en-US';
+        utterance.rate = testState.audio.speechRate;
+        utterance.pitch = 1.0;
+
+        const waveEl = document.getElementById('audio-waveform');
+        if (waveEl) waveEl.classList.add('opacity-100');
+
+        utterance.onstart = () => {
+          if (waveEl) waveEl.style.opacity = '1';
+          if (startTimerOnSpeech && testState.active &&
+              speechRequestId === testState.audio.speechRequestId) {
+            startAudioWordTimer();
+          }
+        };
+        utterance.onend = () => {
+          if (waveEl) waveEl.style.opacity = '0.4';
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } else if (startTimerOnSpeech && testState.active) {
+        startAudioWordTimer();
+      }
+    }
+
+    /* ==========================================================================
+       5. WORD GENERATOR ENGINE
+       ========================================================================== */
+
+    function getWordPool() {
+      if (config.hand === 'both') {
+        return MASTER_WORDS;
+      }
+      const handPool = HAND_DICTIONARIES[config.layout]?.[config.hand];
+      if (handPool && handPool.length > 0) {
+        return handPool;
+      }
+      return MASTER_WORDS;
+    }
+
+    function generateWords(count = 50) {
+      const pool = getWordPool();
+      const result = [];
+      for (let i = 0; i < count; i++) {
+        const randomIndex = Math.floor(Math.random() * pool.length);
+        result.push(pool[randomIndex]);
+      }
+      return result;
+    }
+
+    /* ==========================================================================
+       6. UI RENDERING & CARET POSITIONING
+       ========================================================================== */
+
+    function renderWords() {
+      const container = document.getElementById('words-container');
+      container.innerHTML = '';
+
+      if (config.mode === 'audio') {
+        // In Audio mode, show only the current word, masked if not yet typed
+        const wordStr = testState.words[testState.currentWordIndex] || "";
+        testState.audio.currentSpokenWord = wordStr;
+
+        const wordDiv = document.createElement('div');
+        wordDiv.className = 'word current-word flex flex-wrap';
+
+        for (let j = 0; j < wordStr.length; j++) {
+          const letterSpan = document.createElement('span');
+          letterSpan.className = 'letter';
+          // Render character or bullet mask
+          letterSpan.textContent = wordStr[j];
+          wordDiv.appendChild(letterSpan);
+        }
+        container.appendChild(wordDiv);
+      } else {
+        // Standard Time / Words Mode
+        testState.words.forEach((wordStr, wIndex) => {
+          const wordDiv = document.createElement('div');
+          wordDiv.className = `word ${wIndex === testState.currentWordIndex ? 'current-word' : ''}`;
+
+          for (let cIndex = 0; cIndex < wordStr.length; cIndex++) {
+            const letterSpan = document.createElement('span');
+            letterSpan.className = 'letter';
+            letterSpan.textContent = wordStr[cIndex];
+            wordDiv.appendChild(letterSpan);
+          }
+          container.appendChild(wordDiv);
+        });
+      }
+
+      updateCaretPosition();
+    }
+
+    function scrollCurrentWordIntoView() {
+      if (config.mode === 'audio') return;
+
+      const wrapper = document.getElementById('words-wrapper');
+      const currentWordEl = document.getElementById('words-container').children[testState.currentWordIndex];
+      if (!currentWordEl) return;
+
+      const lineHeight = currentWordEl.offsetHeight + 12;
+      const wordTop = currentWordEl.offsetTop;
+      const wordBottom = wordTop + currentWordEl.offsetHeight;
+      const visibleTop = wrapper.scrollTop;
+      const visibleBottom = visibleTop + wrapper.clientHeight;
+
+      if (wordBottom > visibleBottom) {
+        wrapper.scrollTop = Math.max(0, wordBottom - wrapper.clientHeight + lineHeight);
+      } else if (wordTop < visibleTop) {
+        wrapper.scrollTop = Math.max(0, wordTop - lineHeight);
+      }
+    }
+
+    function updateCaretPosition() {
+      const caret = document.getElementById('caret');
+      const container = document.getElementById('words-container');
+      const wrapper = document.getElementById('words-wrapper');
+      const currentWordEl = container.children[config.mode === 'audio' ? 0 : testState.currentWordIndex];
+
+      if (!currentWordEl) return;
+      if (config.mode !== 'audio' && wrapper.scrollTop > 0) {
+        caret.classList.add('opacity-0');
+        return;
+      }
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const wordRect = currentWordEl.getBoundingClientRect();
+      const isVisible = wordRect.bottom > wrapperRect.top &&
+        wordRect.top < wrapperRect.bottom;
+      caret.classList.toggle('opacity-0', !isVisible);
+
+      const letters = currentWordEl.querySelectorAll('.letter');
+
+      if (testState.currentCharIndex < letters.length) {
+        const letterEl = letters[testState.currentCharIndex];
+        const letterRect = letterEl.getBoundingClientRect();
+        caret.style.transform = `translate(${letterRect.left - wrapperRect.left}px, ${letterRect.top - wrapperRect.top + 4}px)`;
+      } else {
+        // At end of word
+        const lastLetter = letters[letters.length - 1];
+        if (lastLetter) {
+          const lastLetterRect = lastLetter.getBoundingClientRect();
+          caret.style.transform = `translate(${lastLetterRect.right - wrapperRect.left}px, ${lastLetterRect.top - wrapperRect.top + 4}px)`;
+        } else {
+          caret.style.transform = `translate(${wordRect.left - wrapperRect.left}px, ${wordRect.top - wrapperRect.top + 4}px)`;
+        }
+      }
+    }
+
+    function renderKeyboard() {
+      const container = document.getElementById('keyboard-container');
+      container.innerHTML = '';
+
+      if (!config.showKeyboard) {
+        document.getElementById('keyboard-wrapper').classList.add('hidden');
+        return;
+      }
+      document.getElementById('keyboard-wrapper').classList.remove('hidden');
+
+      const layoutData = KEYBOARD_LAYOUTS[config.layout];
+      const activeHandSet = layoutData.hands[config.hand];
+
+      layoutData.rows.forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'flex justify-center gap-1 md:gap-1.5';
+
+        row.forEach(key => {
+          const keycap = document.createElement('div');
+          const isAllowed = config.hand === 'both' || (activeHandSet && activeHandSet.has(key));
+
+          keycap.id = `key-${key === ';' ? 'semicolon' : key === ',' ? 'comma' : key === '.' ? 'period' : key === ':' ? 'colon' : key}`;
+          keycap.className = `keycap w-8 h-9 md:w-11 md:h-11 rounded-lg border border-keyboardBorder flex items-center justify-center text-xs md:text-sm font-mono font-semibold uppercase ${
+            isAllowed ? 'active-hand text-textMain' : 'dimmed bg-bg text-textMuted border-transparent'
+          }`;
+          keycap.textContent = key;
+          rowDiv.appendChild(keycap);
+        });
+
+        container.appendChild(rowDiv);
+      });
+
+      // Spacebar row
+      const spaceRow = document.createElement('div');
+      spaceRow.className = 'flex justify-center mt-1';
+      const spaceKey = document.createElement('div');
+      spaceKey.id = 'key-space';
+      spaceKey.className = 'keycap w-48 md:w-64 h-8 md:h-9 rounded-lg border border-keyboardBorder bg-keyboardKey text-textMuted flex items-center justify-center text-xs font-mono tracking-widest uppercase';
+      spaceKey.textContent = 'space';
+      spaceRow.appendChild(spaceKey);
+      container.appendChild(spaceRow);
+    }
+
+    /* ==========================================================================
+       7. TEST LOGIC & ENGINE
+       ========================================================================== */
+
+    function initTest() {
+      clearInterval(testState.timerInterval);
+      clearInterval(testState.audio.wordTimerInterval);
+
+      testState.active = false;
+      testState.finished = false;
+      testState.startTime = null;
+      testState.currentWordIndex = 0;
+      testState.currentCharIndex = 0;
+      document.getElementById('words-wrapper').scrollTop = 0;
+      testState.history = [];
+      testState.keystrokes = { correct: 0, incorrect: 0, extra: 0, missed: 0, total: 0 };
+
+      // Reset Audio Mode parameters
+      testState.audio.streak = 0;
+      testState.audio.speechRate = 1.0;
+      testState.audio.wordTimeLimit = 6.0;
+      testState.audio.wordTimeRemaining = 6.0;
+      testState.audio.speechRequestId++;
+
+      // Mode-based setup
+      if (config.mode === 'time') {
+        testState.timeLeft = parseInt(config.value);
+        document.getElementById('live-timer-label').textContent = 'TIME';
+        document.getElementById('live-timer').textContent = `${testState.timeLeft}s`;
+        document.getElementById('stat-streak-box').classList.add('hidden');
+        document.getElementById('audio-hud').classList.add('hidden');
+        document.getElementById('audio-progress-wrapper').classList.add('hidden');
+        document.getElementById('stat-wpm-box').classList.remove('hidden');
+        document.getElementById('stat-acc-box').classList.remove('hidden');
+      } else if (config.mode === 'words') {
+        document.getElementById('live-timer-label').textContent = 'WORD';
+        document.getElementById('live-timer').textContent = `0/${config.value}`;
+        document.getElementById('stat-streak-box').classList.add('hidden');
+        document.getElementById('audio-hud').classList.add('hidden');
+        document.getElementById('audio-progress-wrapper').classList.add('hidden');
+        document.getElementById('stat-wpm-box').classList.remove('hidden');
+        document.getElementById('stat-acc-box').classList.remove('hidden');
+      } else if (config.mode === 'audio') {
+        document.getElementById('stat-streak-box').classList.remove('hidden');
+        document.getElementById('audio-hud').classList.remove('hidden');
+        document.getElementById('audio-progress-wrapper').classList.remove('hidden');
+        document.getElementById('stat-wpm-box').classList.add('hidden');
+        document.getElementById('stat-acc-box').classList.add('hidden');
+        document.getElementById('live-timer-label').textContent = 'LIMIT';
+        document.getElementById('live-timer').textContent = `6.0s`;
+        document.getElementById('live-streak').textContent = `0x`;
+        updateAudioHUD();
+      }
+
+      // Populate Words
+      const count = config.mode === 'words' ? parseInt(config.value) : 100;
+      testState.words = generateWords(count);
+
+      // Views Reset
+      document.getElementById('test-view').classList.remove('hidden');
+      document.getElementById('results-view').classList.add('hidden');
+      document.getElementById('live-stats-header').style.opacity = '0';
+      document.getElementById('focus-error-notice').classList.add('hidden');
+
+      renderWords();
+      renderKeyboard();
+      if (config.mode === 'audio') {
+        testState.active = true;
+        testState.startTime = Date.now();
+        document.getElementById('live-stats-header').style.opacity = '1';
+        speakCurrentWord(true);
+      }
+      focusInput();
+    }
+
+    function startTest() {
+      testState.active = true;
+      testState.startTime = Date.now();
+      document.getElementById('live-stats-header').style.opacity = '1';
+
+      if (config.mode === 'time') {
+        testState.timerInterval = setInterval(() => {
+          testState.timeLeft--;
+          document.getElementById('live-timer').textContent = `${testState.timeLeft}s`;
+          
+          recordSnapshot();
+          updateLiveStats();
+
+          if (testState.timeLeft <= 0) {
+            endTest();
+          }
+        }, 1000);
+      } else if (config.mode === 'words') {
+        testState.timerInterval = setInterval(() => {
+          recordSnapshot();
+          updateLiveStats();
+        }, 1000);
+      }
+    }
+
+    /* Audio Mode Per-Word Timer */
+    function startAudioWordTimer() {
+      clearInterval(testState.audio.wordTimerInterval);
+      testState.audio.wordTimeRemaining = testState.audio.wordTimeLimit;
+
+      const startTime = Date.now();
+      const duration = testState.audio.wordTimeLimit * 1000;
+
+      testState.audio.wordTimerInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, duration - elapsed);
+        testState.audio.wordTimeRemaining = (remaining / 1000);
+
+        // Update progress bar width
+        const pct = (remaining / duration) * 100;
+        document.getElementById('audio-progress-bar').style.width = `${pct}%`;
+        document.getElementById('live-timer').textContent = `${testState.audio.wordTimeRemaining.toFixed(1)}s`;
+
+        if (remaining <= 0) {
+          clearInterval(testState.audio.wordTimerInterval);
+          playKeySound('error');
+          endTest(); // Time expired in Audio speedrun mode!
+        }
+      }, 50);
+    }
+
+    function updateAudioHUD() {
+      document.getElementById('audio-speed-label').textContent = `${testState.audio.speechRate.toFixed(2)}x`;
+      document.getElementById('audio-timer-limit-label').textContent = `${testState.audio.wordTimeLimit.toFixed(1)}s`;
+    }
+
+    function advanceAudioWord() {
+      testState.audio.streak++;
+      if (testState.audio.streak > testState.audio.maxStreak) {
+        testState.audio.maxStreak = testState.audio.streak;
+      }
+
+      // Progressive difficulty scaling:
+      // Time limit shrinks down to 1.8s minimum
+      testState.audio.wordTimeLimit = Math.max(1.8, 6.0 - (testState.audio.streak * 0.25));
+      // Speech rate speeds up to 1.5x
+      testState.audio.speechRate = Math.min(1.5, 1.0 + (testState.audio.streak * 0.04));
+
+      // UI pop feedback on streak
+      const streakEl = document.getElementById('live-streak');
+      streakEl.textContent = `${testState.audio.streak}x`;
+      streakEl.classList.remove('streak-pop');
+      void streakEl.offsetWidth; // trigger reflow
+      streakEl.classList.add('streak-pop');
+
+      updateAudioHUD();
+
+      // Next word
+      clearInterval(testState.audio.wordTimerInterval);
+      testState.audio.wordTimeRemaining = testState.audio.wordTimeLimit;
+      document.getElementById('audio-progress-bar').style.width = '100%';
+      document.getElementById('live-timer').textContent = `${testState.audio.wordTimeRemaining.toFixed(1)}s`;
+      testState.currentWordIndex++;
+      testState.currentCharIndex = 0;
+
+      renderWords();
+      speakCurrentWord(true);
+      scrollCurrentWordIntoView();
+    }
+
+    function recordSnapshot() {
+      const timeElapsed = (Date.now() - testState.startTime) / 1000 / 60; // in minutes
+      if (timeElapsed <= 0) return;
+
+      const wpm = Math.round((testState.keystrokes.correct / 5) / timeElapsed);
+      const rawWpm = Math.round((testState.keystrokes.total / 5) / timeElapsed);
+
+      testState.history.push({
+        second: testState.history.length + 1,
+        wpm: isNaN(wpm) ? 0 : wpm,
+        rawWpm: isNaN(rawWpm) ? 0 : rawWpm,
+        errors: testState.keystrokes.incorrect
+      });
+    }
+
+    function updateLiveStats() {
+      const timeElapsed = Math.max(0.1, (Date.now() - testState.startTime) / 1000 / 60);
+      const wpm = Math.round((testState.keystrokes.correct / 5) / timeElapsed);
+      const totalAttempted = testState.keystrokes.correct + testState.keystrokes.incorrect;
+      const acc = totalAttempted > 0 ? Math.round((testState.keystrokes.correct / totalAttempted) * 100) : 100;
+
+      document.getElementById('live-wpm').textContent = isNaN(wpm) ? 0 : wpm;
+      document.getElementById('live-acc').textContent = `${acc}%`;
+
+      if (config.mode === 'words') {
+        document.getElementById('live-timer').textContent = `${testState.currentWordIndex}/${config.value}`;
+      }
+    }
+
+    function handleTypingInput(char, isBackspace, isSpace) {
+      if (testState.finished) return;
+
+      if (!testState.active) {
+        startTest();
+      }
+
+      const container = document.getElementById('words-container');
+      const currentWordEl = container.children[config.mode === 'audio' ? 0 : testState.currentWordIndex];
+      const currentWordStr = testState.words[testState.currentWordIndex];
+      const letters = currentWordEl.querySelectorAll('.letter');
+
+      if (isBackspace) {
+        playKeySound('click');
+        if (config.mode !== 'audio' && testState.currentCharIndex === 0 && testState.currentWordIndex > 0) {
+          currentWordEl.classList.remove('current-word');
+          testState.currentWordIndex--;
+          const previousWordEl = container.children[testState.currentWordIndex];
+          previousWordEl.classList.add('current-word');
+          testState.currentCharIndex = previousWordEl.querySelectorAll('.letter').length;
+          scrollCurrentWordIntoView();
+          updateCaretPosition();
+          return;
+        }
+
+        if (testState.currentCharIndex > 0) {
+          testState.currentCharIndex--;
+          const letterEl = letters[testState.currentCharIndex];
+          if (letterEl.classList.contains('extra')) {
+            letterEl.remove();
+          } else {
+            letterEl.className = 'letter';
+          }
+        }
+        updateCaretPosition();
+        return;
+      }
+
+      if (isSpace) {
+        playKeySound('space');
+        if (config.mode === 'audio') {
+          const isCorrectWord = testState.currentCharIndex === currentWordStr.length &&
+            letters.length === currentWordStr.length &&
+            Array.from(letters).every(letter => letter.classList.contains('correct'));
+
+          if (isCorrectWord) {
+            advanceAudioWord();
+          } else {
+            playKeySound('error');
+            endTest(); // Failed audio match!
+          }
+        } else {
+          // Standard Mode Space
+          if (testState.currentCharIndex === 0) return; // Prevent empty space
+
+          // Mark uncompleted letters as missed
+          for (let i = testState.currentCharIndex; i < letters.length; i++) {
+            letters[i].classList.add('incorrect');
+            testState.keystrokes.missed++;
+          }
+
+          currentWordEl.classList.remove('current-word');
+          testState.currentWordIndex++;
+          testState.currentCharIndex = 0;
+
+          if (testState.currentWordIndex >= testState.words.length || 
+             (config.mode === 'words' && testState.currentWordIndex >= parseInt(config.value))) {
+            endTest();
+            return;
+          }
+
+          container.children[testState.currentWordIndex].classList.add('current-word');
+          scrollCurrentWordIntoView();
+        }
+
+        updateCaretPosition();
+        updateLiveStats();
+        return;
+      }
+
+      // Regular Letter Key
+      if (char.length === 1) {
+        playKeySound('click');
+        testState.keystrokes.total++;
+
+        if (testState.currentCharIndex < currentWordStr.length) {
+          const expectedChar = currentWordStr[testState.currentCharIndex];
+          const letterEl = letters[testState.currentCharIndex];
+
+          if (char === expectedChar) {
+            letterEl.classList.add('correct');
+            testState.keystrokes.correct++;
+          } else {
+            letterEl.classList.add('incorrect');
+            testState.keystrokes.incorrect++;
+            currentWordEl.classList.add('error-word');
+          }
+          testState.currentCharIndex++;
+        } else {
+          // Extra letters beyond word length
+          const extraSpan = document.createElement('span');
+          extraSpan.className = 'letter extra incorrect';
+          extraSpan.textContent = char;
+          currentWordEl.appendChild(extraSpan);
+          testState.currentCharIndex++;
+          testState.keystrokes.extra++;
+        }
+
+        // Automatic progression for a fully correct audio word
+        if (config.mode === 'audio' && testState.currentCharIndex >= currentWordStr.length) {
+          const isCorrectWord = currentWordEl.querySelectorAll('.letter').length === currentWordStr.length &&
+            Array.from(currentWordEl.querySelectorAll('.letter')).every(letter => letter.classList.contains('correct'));
+          if (isCorrectWord) {
+            advanceAudioWord();
+            return;
+          }
+        }
+
+        updateCaretPosition();
+        updateLiveStats();
+      }
+    }
+
+    function endTest() {
+      testState.finished = true;
+      testState.active = false;
+      clearInterval(testState.timerInterval);
+      clearInterval(testState.audio.wordTimerInterval);
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      const totalTimeSec = Math.max(1, (Date.now() - testState.startTime) / 1000);
+      const timeMinutes = totalTimeSec / 60;
+
+      const finalWpm = Math.round((testState.keystrokes.correct / 5) / timeMinutes);
+      const finalRawWpm = Math.round((testState.keystrokes.total / 5) / timeMinutes);
+      const totalAttempted = testState.keystrokes.correct + testState.keystrokes.incorrect;
+      const finalAcc = totalAttempted > 0 ? Math.round((testState.keystrokes.correct / totalAttempted) * 100) : 100;
+
+      // Populate Result View UI
+      document.getElementById('result-wpm').textContent = isNaN(finalWpm) ? 0 : finalWpm;
+      document.getElementById('result-acc').textContent = `${finalAcc}%`;
+      document.getElementById('result-raw-wpm').textContent = isNaN(finalRawWpm) ? 0 : finalRawWpm;
+      document.getElementById('result-chars').textContent = `${testState.keystrokes.correct}/${testState.keystrokes.incorrect}/${testState.keystrokes.extra}/${testState.keystrokes.missed}`;
+      document.getElementById('result-time').textContent = `${Math.round(totalTimeSec)}s`;
+
+      const modeDesc = `${config.hand.toUpperCase()} / ${config.layout.toUpperCase()} (${config.mode.toUpperCase()})`;
+      document.getElementById('result-mode-desc').textContent = modeDesc;
+
+      if (config.mode === 'audio') {
+        document.getElementById('audio-streak-result-box').classList.remove('hidden');
+        document.getElementById('result-max-streak').textContent = `${testState.audio.maxStreak}x`;
+      } else {
+        document.getElementById('audio-streak-result-box').classList.add('hidden');
+      }
+
+      document.getElementById('test-view').classList.add('hidden');
+      document.getElementById('results-view').classList.remove('hidden');
+
+      renderChart();
+    }
+
+    /* ==========================================================================
+       8. CANVAS CHART GRAPHING ENGINE
+       ========================================================================== */
+
+    function renderChart() {
+      const canvas = document.getElementById('wpm-chart');
+      const ctx = canvas.getContext('2d');
+
+      // Adjust for DPI display
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const data = testState.history;
+      if (!data || data.length < 2) {
+        ctx.fillStyle = '#687078';
+        ctx.font = '14px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('Not enough timing data to draw chart', w / 2, h / 2);
+        return;
+      }
+
+      const padding = 35;
+      const graphW = w - padding * 2;
+      const graphH = h - padding * 2;
+
+      const maxWpm = Math.max(...data.map(d => Math.max(d.wpm, d.rawWpm)), 40);
+
+      // Draw Grid Lines
+      ctx.strokeStyle = '#30363b';
+      ctx.lineWidth = 1;
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillStyle = '#687078';
+      ctx.textAlign = 'right';
+
+      const gridSteps = 4;
+      for (let i = 0; i <= gridSteps; i++) {
+        const yVal = Math.round((maxWpm / gridSteps) * i);
+        const y = h - padding - (i * (graphH / gridSteps));
+
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(w - padding, y);
+        ctx.stroke();
+
+        ctx.fillText(yVal, padding - 8, y + 3);
+      }
+
+      // Plot WPM Line
+      ctx.strokeStyle = '#00ff09';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+
+      data.forEach((pt, i) => {
+        const x = padding + (i / (data.length - 1)) * graphW;
+        const y = h - padding - (pt.wpm / maxWpm) * graphH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Plot Raw WPM Line
+      ctx.strokeStyle = '#687078';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+
+      data.forEach((pt, i) => {
+        const x = padding + (i / (data.length - 1)) * graphW;
+        const y = h - padding - (pt.rawWpm / maxWpm) * graphH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset dash
+    }
+
+    /* ==========================================================================
+       9. INPUT LISTENERS & FOCUS MANAGEMENT
+       ========================================================================== */
+
+    const inputEl = document.getElementById('typing-input');
+
+    function focusInput() {
+      inputEl.focus();
+      document.getElementById('focus-error-notice').classList.add('hidden');
+      document.getElementById('caret').classList.remove('opacity-0');
+    }
+
+    function blurInput() {
+      if (testState.active && !testState.finished) {
+        document.getElementById('focus-error-notice').classList.remove('hidden');
+        document.getElementById('caret').classList.add('opacity-0');
+      }
+    }
+
+    inputEl.addEventListener('blur', blurInput);
+    document.getElementById('words-wrapper').addEventListener('scroll', updateCaretPosition);
+
+    window.addEventListener('keydown', (e) => {
+      // Replay Audio Shortcut in Audio mode
+      if (e.key === 'Enter' && config.mode === 'audio') {
+        e.preventDefault();
+        speakCurrentWord();
+        return;
+      }
+
+      // Quick Restart Shortcut (Tab + Enter or Escape)
+      if (e.key === 'Escape') {
+        initTest();
+        return;
+      }
+
+      // Highlight Virtual Keyboard
+      const keyStr = e.key.toLowerCase();
+      let keyElId = `key-${keyStr === ';' ? 'semicolon' : keyStr === ',' ? 'comma' : keyStr === '.' ? 'period' : keyStr === ':' ? 'colon' : keyStr === ' ' ? 'space' : keyStr}`;
+      const keycap = document.getElementById(keyElId);
+      if (keycap) {
+        keycap.classList.add('pressed');
+        setTimeout(() => keycap.classList.remove('pressed'), 120);
+      }
+
+      if (document.activeElement !== inputEl) {
+        focusInput();
+      }
+
+      if (e.key === 'Backspace') {
+        handleTypingInput('', true, false);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        handleTypingInput('', false, true);
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        handleTypingInput(e.key, false, false);
+      }
+    });
+
+    /* ==========================================================================
+       10. EVENT HANDLERS & NAVIGATION CONTROLS
+       ========================================================================== */
+
+    // Hand Selector Buttons
+    document.querySelectorAll('.hand-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.hand-btn').forEach(b => {
+          b.className = 'hand-btn px-3 py-1.5 rounded-lg transition-all text-textMuted hover:text-textMain';
+        });
+        btn.className = 'hand-btn px-3 py-1.5 rounded-lg transition-all bg-accent text-bg font-semibold shadow';
+        config.hand = btn.dataset.hand;
+        initTest();
+      });
+    });
+
+    // Layout Selector Buttons
+    document.querySelectorAll('.layout-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.layout-btn').forEach(b => {
+          b.className = 'layout-btn px-3 py-1.5 rounded-lg transition-all text-textMuted hover:text-textMain';
+        });
+        btn.className = 'layout-btn px-3 py-1.5 rounded-lg transition-all bg-accent text-bg font-semibold shadow';
+        config.layout = btn.dataset.layout;
+        initTest();
+      });
+    });
+
+    // Mode Selector Buttons
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => {
+          b.className = 'mode-btn px-3 py-1.5 rounded-lg transition-all text-textMuted hover:text-textMain flex items-center gap-1';
+        });
+        btn.className = 'mode-btn px-3 py-1.5 rounded-lg transition-all bg-accent text-bg font-semibold shadow flex items-center gap-1';
+        config.mode = btn.dataset.mode;
+
+        // Render appropriate submode options
+        const subContainer = document.getElementById('submode-options');
+        if (config.mode === 'time') {
+          subContainer.innerHTML = `
+            <button data-value="15" class="submode-btn px-2.5 py-1.5 rounded-lg text-textMuted hover:text-textMain">15s</button>
+            <button data-value="30" class="submode-btn px-2.5 py-1.5 rounded-lg bg-accent text-bg font-semibold shadow">30s</button>
+            <button data-value="60" class="submode-btn px-2.5 py-1.5 rounded-lg text-textMuted hover:text-textMain">60s</button>
+          `;
+          config.value = 30;
+        } else if (config.mode === 'words') {
+          subContainer.innerHTML = `
+            <button data-value="10" class="submode-btn px-2.5 py-1.5 rounded-lg text-textMuted hover:text-textMain">10</button>
+            <button data-value="25" class="submode-btn px-2.5 py-1.5 rounded-lg bg-accent text-bg font-semibold shadow">25</button>
+            <button data-value="50" class="submode-btn px-2.5 py-1.5 rounded-lg text-textMuted hover:text-textMain">50</button>
+          `;
+          config.value = 25;
+        } else if (config.mode === 'audio') {
+          subContainer.innerHTML = `
+            <span class="px-3 py-1 text-xs text-accent font-mono"><i class="fa-solid fa-fire"></i> Speedrun Streak Mode</span>
+          `;
+        }
+
+        bindSubmodeEvents();
+        initTest();
+      });
+    });
+
+    function bindSubmodeEvents() {
+      document.querySelectorAll('.submode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.submode-btn').forEach(b => {
+            b.className = 'submode-btn px-2.5 py-1.5 rounded-lg text-textMuted hover:text-textMain';
+          });
+          btn.className = 'submode-btn px-2.5 py-1.5 rounded-lg bg-accent text-bg font-semibold shadow';
+          config.value = btn.dataset.value;
+          initTest();
+        });
+      });
+    }
+
+    bindSubmodeEvents();
+
+    // Toggle Sound Button
+    document.getElementById('toggle-sound-btn').addEventListener('click', () => {
+      config.sound = !config.sound;
+      const icon = document.getElementById('sound-icon');
+      if (config.sound) {
+        icon.className = 'fa-solid fa-volume-high text-accent';
+      } else {
+        icon.className = 'fa-solid fa-volume-xmark text-textMuted';
+      }
+    });
+
+    // Toggle Keyboard Button
+    document.getElementById('toggle-keyboard-btn').addEventListener('click', () => {
+      config.showKeyboard = !config.showKeyboard;
+      renderKeyboard();
+    });
+
+    // Replay Audio Button
+    document.getElementById('replay-audio-btn').addEventListener('click', speakCurrentWord);
+
+    // Quick Action Buttons
+    document.getElementById('quick-restart-btn').addEventListener('click', initTest);
+    document.getElementById('next-test-btn').addEventListener('click', initTest);
+    document.getElementById('repeat-test-btn').addEventListener('click', initTest);
+    document.getElementById('logo-btn').addEventListener('click', initTest);
+
+    // Window Resize Handler for Canvas Chart & Caret
+    window.addEventListener('resize', () => {
+      if (testState.finished) renderChart();
+      else updateCaretPosition();
+    });
+
+    // Initial Start on Page Load
+    window.onload = () => {
+      initTest();
+    };
+  </script>
+</body>
+</html>
